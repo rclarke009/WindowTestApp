@@ -325,15 +325,22 @@ struct InfoRow: View {
 struct WindowsListView: View {
     let job: Job
     @Environment(\.managedObjectContext) private var viewContext
+    @State private var refreshTrigger = UUID()
+    
+    private var windows: [Window] {
+        guard let windowsSet = job.windows else { return [] }
+        return windowsSet.allObjects as? [Window] ?? []
+    }
     
     var body: some View {
         VStack {
-            if let windows = job.windows?.allObjects as? [Window], !windows.isEmpty {
+            if !windows.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text("Windows (\(windows.count))")
                             .font(.headline)
                             .fontWeight(.semibold)
+                            .id("window-count-\(refreshTrigger)")
                         Spacer()
                         Button("Add Window") {
                             addWindow()
@@ -347,6 +354,7 @@ struct WindowsListView: View {
                             WindowRowView(window: window)
                         }
                     }
+                    .id(refreshTrigger)
                 }
             } else {
                 VStack(spacing: 20) {
@@ -385,6 +393,7 @@ struct WindowsListView: View {
         do {
             try viewContext.save()
             print("✅ Window \(newWindow.windowNumber ?? "Unknown") created successfully!")
+            refreshTrigger = UUID() // Trigger UI refresh
         } catch {
             print("❌ Failed to save new window: \(error.localizedDescription)")
         }
