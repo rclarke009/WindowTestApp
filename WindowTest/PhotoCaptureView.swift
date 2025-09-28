@@ -189,7 +189,7 @@ struct PhotoCaptureView: View {
     private func savePhotoToLibrary(_ image: UIImage) {
         PHPhotoLibrary.shared().performChanges({
             let creationRequest = PHAssetCreationRequest.forAsset()
-            creationRequest.addResource(with: .photo, imageData: image.jpegData(compressionQuality: 0.9)!, options: nil)
+            creationRequest.addResource(with: .photo, data: image.jpegData(compressionQuality: 0.9)!, options: nil)
             
             if let assetPlaceholder = creationRequest.placeholderForCreatedAsset {
                 // Create Photo entity in Core Data
