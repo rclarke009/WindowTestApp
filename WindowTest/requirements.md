@@ -211,6 +211,7 @@ export interface ScrapeResult {
 ### E3) Measurements / Types / Conditions / Results / Photos
 
 * Same as previously specified (ARKit + manual; required photo sets; leak points).
+The photos must be saved to the user's camera roll.
 
 ### E4) Export
 

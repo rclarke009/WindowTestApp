@@ -173,39 +173,54 @@ struct PhotoCaptureView: View {
     }
     
     private func savePhoto(_ image: UIImage) {
-        guard let imageData = image.jpegData(compressionQuality: 0.8) else { return }
-        
-        let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let photosDirectory = documentsDirectory.appendingPathComponent("photos")
-        
-        do {
-            try FileManager.default.createDirectory(at: photosDirectory, withIntermediateDirectories: true)
-            
-            let fileName = "\(window.windowId ?? UUID().uuidString)_\(photoType.rawValue.lowercased()).jpg"
-            let fileURL = photosDirectory.appendingPathComponent(fileName)
-            
-            try imageData.write(to: fileURL)
-            
-            // Update window with photo path
-            switch photoType {
-            case .exterior:
-                window.exteriorPhotoPath = fileName
-            case .interior:
-                window.interiorPhotoPath = fileName
-            case .leak:
-                window.leakPhotoPath = fileName
+        // Request photo library permission
+        PHPhotoLibrary.requestAuthorization { status in
+            DispatchQueue.main.async {
+                if status == .authorized {
+                    self.savePhotoToLibrary(image)
+                } else {
+                    self.alertMessage = "Photo library access is required to save photos"
+                    self.showingAlert = true
+                }
             }
+        }
+    }
+    
+    private func savePhotoToLibrary(_ image: UIImage) {
+        PHPhotoLibrary.shared().performChanges({
+            let creationRequest = PHAssetCreationRequest.forAsset()
+            creationRequest.addResource(with: .photo, image: image, options: nil)
             
-            window.updatedAt = Date()
-            
-            try window.managedObjectContext?.save()
-            
-            alertMessage = "\(photoType.rawValue) photo saved successfully"
-            showingAlert = true
-            
-        } catch {
-            alertMessage = "Failed to save photo: \(error.localizedDescription)"
-            showingAlert = true
+            if let assetPlaceholder = creationRequest.placeholderForCreatedAsset {
+                // Create Photo entity in Core Data
+                let photo = Photo(context: self.window.managedObjectContext!)
+                photo.photoId = UUID().uuidString
+                photo.photoType = self.photoType.rawValue
+                photo.localIdentifier = assetPlaceholder.localIdentifier
+                photo.createdAt = Date()
+                photo.window = self.window
+                
+                // Add to photos relationship
+                self.window.addToPhotos(photo)
+                
+                self.window.updatedAt = Date()
+            }
+        }) { success, error in
+            DispatchQueue.main.async {
+                if success {
+                    do {
+                        try self.window.managedObjectContext?.save()
+                        self.alertMessage = "\(self.photoType.rawValue) photo saved to camera roll successfully"
+                        self.showingAlert = true
+                    } catch {
+                        self.alertMessage = "Failed to save photo data: \(error.localizedDescription)"
+                        self.showingAlert = true
+                    }
+                } else {
+                    self.alertMessage = "Failed to save photo to camera roll: \(error?.localizedDescription ?? "Unknown error")"
+                    self.showingAlert = true
+                }
+            }
         }
     }
 }

@@ -46,6 +46,11 @@ struct FieldResultsPackage {
         return zipURL
     }
     
+    private func getPhotoCount(for window: Window, type: String) -> Int {
+        let allPhotos = (window.photos?.allObjects as? [Photo]) ?? []
+        return allPhotos.filter { $0.photoType == type }.count
+    }
+    
     private func generateJobJSON(in directory: URL) async throws {
         let jobData = JobExportData(
             intake: IntakeData(
@@ -71,9 +76,9 @@ struct FieldResultsPackage {
                         leakPoints: Int(window.leakPoints),
                         isAccessible: window.isAccessible,
                         notes: window.notes,
-                        exteriorPhotoPath: window.exteriorPhotoPath,
-                        interiorPhotoPath: window.interiorPhotoPath,
-                        leakPhotoPath: window.leakPhotoPath
+                        exteriorPhotoCount: getPhotoCount(for: window, type: "Exterior"),
+                        interiorPhotoCount: getPhotoCount(for: window, type: "Interior"),
+                        leakPhotoCount: getPhotoCount(for: window, type: "Leak")
                     )
                 }
             )
@@ -89,7 +94,7 @@ struct FieldResultsPackage {
     }
     
     private func generateWindowsCSV(in directory: URL) async throws {
-        var csvContent = "Window ID,Window Number,X Position,Y Position,Width,Height,Type,Condition,Test Result,Leak Points,Accessible,Notes,Exterior Photo,Interior Photo,Leak Photo\n"
+        var csvContent = "Window ID,Window Number,X Position,Y Position,Width,Height,Type,Condition,Test Result,Leak Points,Accessible,Notes,Exterior Photo Count,Interior Photo Count,Leak Photo Count\n"
         
         for window in windows {
             let windowId = window.windowId ?? ""
@@ -104,11 +109,11 @@ struct FieldResultsPackage {
             let leakPoints = String(window.leakPoints)
             let accessible = window.isAccessible ? "Yes" : "No"
             let notes = window.notes ?? ""
-            let exteriorPhoto = window.exteriorPhotoPath ?? ""
-            let interiorPhoto = window.interiorPhotoPath ?? ""
-            let leakPhoto = window.leakPhotoPath ?? ""
+            let exteriorPhotoCount = getPhotoCount(for: window, type: "Exterior")
+            let interiorPhotoCount = getPhotoCount(for: window, type: "Interior")
+            let leakPhotoCount = getPhotoCount(for: window, type: "Leak")
             
-            let row = "\(windowId),\(windowNumber),\(xPosition),\(yPosition),\(width),\(height),\(windowType),\(condition),\(testResult),\(leakPoints),\(accessible),\(notes),\(exteriorPhoto),\(interiorPhoto),\(leakPhoto)"
+            let row = "\(windowId),\(windowNumber),\(xPosition),\(yPosition),\(width),\(height),\(windowType),\(condition),\(testResult),\(leakPoints),\(accessible),\(notes),\(exteriorPhotoCount),\(interiorPhotoCount),\(leakPhotoCount)"
             
             csvContent += row + "\n"
         }
@@ -164,28 +169,24 @@ struct FieldResultsPackage {
         let photosDirectory = directory.appendingPathComponent("photos")
         try FileManager.default.createDirectory(at: photosDirectory, withIntermediateDirectories: true)
         
-        let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let sourcePhotosDirectory = documentsDirectory.appendingPathComponent("photos")
+        // Generate photo manifest since photos are now in camera roll
+        var photoManifest = "Photo Manifest\n"
+        photoManifest += "==============\n\n"
         
         for window in windows {
-            let photoTypes = [
-                (window.exteriorPhotoPath, "Exterior"),
-                (window.interiorPhotoPath, "Interior"),
-                (window.leakPhotoPath, "Leak")
-            ]
+            let allPhotos = (window.photos?.allObjects as? [Photo]) ?? []
+            let exteriorPhotos = allPhotos.filter { $0.photoType == "Exterior" }
+            let interiorPhotos = allPhotos.filter { $0.photoType == "Interior" }
+            let leakPhotos = allPhotos.filter { $0.photoType == "Leak" }
             
-            for (photoPath, type) in photoTypes {
-                guard let photoPath = photoPath else { continue }
-                
-                let sourceURL = sourcePhotosDirectory.appendingPathComponent(photoPath)
-                let destinationFileName = "\(window.windowNumber ?? "W")_\(type)_1.jpg"
-                let destinationURL = photosDirectory.appendingPathComponent(destinationFileName)
-                
-                if FileManager.default.fileExists(atPath: sourceURL.path) {
-                    try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
-                }
-            }
+            photoManifest += "Window \(window.windowNumber ?? "Unknown"):\n"
+            photoManifest += "  Exterior Photos: \(exteriorPhotos.count)\n"
+            photoManifest += "  Interior Photos: \(interiorPhotos.count)\n"
+            photoManifest += "  Leak Photos: \(leakPhotos.count)\n\n"
         }
+        
+        let manifestURL = photosDirectory.appendingPathComponent("photo_manifest.txt")
+        try photoManifest.write(to: manifestURL, atomically: true, encoding: .utf8)
     }
     
     private func generateReport(in directory: URL) async throws {
@@ -280,9 +281,9 @@ struct WindowExportData: Codable {
     let leakPoints: Int
     let isAccessible: Bool
     let notes: String?
-    let exteriorPhotoPath: String?
-    let interiorPhotoPath: String?
-    let leakPhotoPath: String?
+    let exteriorPhotoCount: Int
+    let interiorPhotoCount: Int
+    let leakPhotoCount: Int
 }
 
 extension DateFormatter {

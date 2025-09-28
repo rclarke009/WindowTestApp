@@ -37,15 +37,22 @@
         <attribute name="leakPoints" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="isAccessible" optional="NO" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
         <attribute name="notes" optional="YES" attributeType="String"/>
-        <attribute name="exteriorPhotoPath" optional="YES" attributeType="String"/>
-        <attribute name="interiorPhotoPath" optional="YES" attributeType="String"/>
-        <attribute name="leakPhotoPath" optional="YES" attributeType="String"/>
         <attribute name="createdAt" optional="NO" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="updatedAt" optional="NO" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="job" optional="NO" maxCount="1" deletionRule="Nullify" destinationEntity="Job" inverseName="windows" inverseEntity="Job"/>
+        <relationship name="photos" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Photo" inverseName="window" inverseEntity="Photo"/>
+    </entity>
+    <entity name="Photo" representedClassName="Photo" syncable="YES" codeGenerationType="class">
+        <attribute name="photoId" optional="NO" attributeType="String"/>
+        <attribute name="photoType" optional="NO" attributeType="String"/>
+        <attribute name="localIdentifier" optional="NO" attributeType="String"/>
+        <attribute name="createdAt" optional="NO" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="notes" optional="YES" attributeType="String"/>
+        <relationship name="window" optional="NO" maxCount="1" deletionRule="Nullify" destinationEntity="Window" inverseName="photos" inverseEntity="Window"/>
     </entity>
     <elements>
         <element name="Job" positionX="-63" positionY="-18" width="128" height="164"/>
         <element name="Window" positionX="144" positionY="-18" width="128" height="194"/>
+        <element name="Photo" positionX="288" positionY="-18" width="128" height="104"/>
     </elements>
 </model>

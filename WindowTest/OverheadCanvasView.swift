@@ -484,16 +484,14 @@ struct WindowEditorView: View {
                 Section("Photos") {
                     PhotoRow(
                         icon: "house",
-                        title: "Exterior Photo",
-                        isComplete: window.exteriorPhotoPath != nil,
+                        title: "Exterior Photos",
                         window: window,
                         photoType: .exterior
                     )
                     
                     PhotoRow(
                         icon: "door.left.hand.open",
-                        title: "Interior Photo",
-                        isComplete: window.interiorPhotoPath != nil,
+                        title: "Interior Photos",
                         window: window,
                         photoType: .interior
                     )
@@ -501,8 +499,7 @@ struct WindowEditorView: View {
                     if testResult == "Fail" {
                         PhotoRow(
                             icon: "drop",
-                            title: "Leak Photo",
-                            isComplete: window.leakPhotoPath != nil,
+                            title: "Leak Photos",
                             window: window,
                             photoType: .leak
                         )
@@ -554,10 +551,14 @@ struct WindowEditorView: View {
 struct PhotoRow: View {
     let icon: String
     let title: String
-    let isComplete: Bool
     let window: Window
     let photoType: PhotoType
-    @State private var showingPhotoCapture = false
+    @State private var showingPhotoGallery = false
+    
+    private var photoCount: Int {
+        let allPhotos = (window.photos?.allObjects as? [Photo]) ?? []
+        return allPhotos.filter { $0.photoType == photoType.rawValue }.count
+    }
     
     var body: some View {
         HStack {
@@ -565,9 +566,20 @@ struct PhotoRow: View {
                 .foregroundColor(photoType.color)
             Text(title)
             Spacer()
-            if isComplete {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.green)
+            if photoCount > 0 {
+                HStack(spacing: 4) {
+                    Text("\(photoCount)")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                    Image(systemName: "photo.fill")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(12)
             } else {
                 Image(systemName: "circle")
                     .foregroundColor(.gray)
@@ -575,10 +587,10 @@ struct PhotoRow: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            showingPhotoCapture = true
+            showingPhotoGallery = true
         }
-        .sheet(isPresented: $showingPhotoCapture) {
-            PhotoCaptureView(window: window, photoType: photoType)
+        .sheet(isPresented: $showingPhotoGallery) {
+            PhotoGalleryView(window: window, photoType: photoType)
         }
     }
 }
