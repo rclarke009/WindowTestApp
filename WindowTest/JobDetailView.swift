@@ -468,7 +468,8 @@ struct ExportView: View {
     @State private var exportedFileURL: URL?
     
     var body: some View {
-        VStack(spacing: 30) {
+        ScrollView {
+            VStack(spacing: 30) {
             VStack(spacing: 16) {
                 Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 60))
@@ -577,10 +578,12 @@ struct ExportView: View {
             }
             
             Spacer()
+            }
         }
     }
     
     private func exportJob() {
+        print("🚀 Starting export for job: \(job.jobId ?? "Unknown")")
         isExporting = true
         exportError = nil
         exportSuccess = false
@@ -588,7 +591,9 @@ struct ExportView: View {
         Task {
             do {
                 let package = FieldResultsPackage(job: job, exportDirectory: URL(fileURLWithPath: ""))
+                print("📦 Created export package, generating...")
                 let exportedURL = try await package.generate()
+                print("✅ Export completed successfully: \(exportedURL.path)")
                 
                 await MainActor.run {
                     exportedFileURL = exportedURL
@@ -596,6 +601,7 @@ struct ExportView: View {
                     exportSuccess = true
                 }
             } catch {
+                print("❌ Export failed: \(error.localizedDescription)")
                 await MainActor.run {
                     exportError = error.localizedDescription
                     isExporting = false

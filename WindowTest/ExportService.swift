@@ -134,7 +134,7 @@ struct FieldResultsPackage {
         guard let imagePath = job.overheadImagePath else { return }
         
         let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let imageURL = documentsDirectory.appendingPathComponent("images").appendingPathComponent(imagePath)
+        let imageURL = documentsDirectory.appendingPathComponent("overhead_images").appendingPathComponent(imagePath)
         
         guard let image = UIImage(contentsOfFile: imageURL.path) else { return }
         
@@ -231,11 +231,21 @@ struct FieldResultsPackage {
     private func createZIP(from directory: URL, name: String) async throws -> URL {
         let zipURL = directory.deletingLastPathComponent().appendingPathComponent("\(name).zip")
         
-        // For now, we'll create a simple archive by copying the directory
-        // In a real implementation, you would use a ZIP library
-        try FileManager.default.copyItem(at: directory, to: zipURL)
+        // Create a simple archive by copying all files from the directory
+        // Since we can't easily create a ZIP without external libraries, we'll create a folder
+        let archiveDirectory = directory.deletingLastPathComponent().appendingPathComponent(name)
         
-        return zipURL
+        // Remove existing archive directory if it exists
+        if FileManager.default.fileExists(atPath: archiveDirectory.path) {
+            try FileManager.default.removeItem(at: archiveDirectory)
+        }
+        
+        // Copy the entire package directory to the archive directory
+        try FileManager.default.copyItem(at: directory, to: archiveDirectory)
+        
+        // For now, return the directory instead of a ZIP file
+        // In a production app, you would use a ZIP library like ZipArchive
+        return archiveDirectory
     }
     
     private func dotColor(for window: Window) -> UIColor {
