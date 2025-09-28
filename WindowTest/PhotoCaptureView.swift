@@ -201,7 +201,7 @@ struct PhotoCaptureView: View {
                 photo.window = self.window
                 
                 // Add to photos relationship
-                self.window.addToPhotos(photo)
+                self.window.photos = self.window.photos?.adding(photo) as NSSet?
                 
                 self.window.updatedAt = Date()
             }

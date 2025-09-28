@@ -63,7 +63,7 @@ struct PhotoGalleryView: View {
                 } else {
                     ScrollView {
                         LazyVGrid(columns: columns, spacing: 16) {
-                            ForEach(photosArray.sorted(by: { $0.createdAt > $1.createdAt }), id: \.photoId) { photo in
+                            ForEach(photosArray.sorted(by: { ($0.createdAt ?? Date.distantPast) > ($1.createdAt ?? Date.distantPast) }), id: \.photoId) { photo in
                                 PhotoThumbnailView(photo: photo, photoType: photoType)
                             }
                         }
@@ -185,7 +185,8 @@ struct PhotoThumbnailView: View {
     }
     
     private func loadImage() {
-        let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: [photo.localIdentifier], options: nil)
+        guard let localIdentifier = photo.localIdentifier else { return }
+        let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: [localIdentifier], options: nil)
         
         guard let asset = fetchResult.firstObject else { return }
         
@@ -249,7 +250,8 @@ struct FullScreenPhotoView: View {
     }
     
     private func loadFullSizeImage() {
-        let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: [photo.localIdentifier], options: nil)
+        guard let localIdentifier = photo.localIdentifier else { return }
+        let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: [localIdentifier], options: nil)
         
         guard let asset = fetchResult.firstObject else { return }
         
