@@ -16,5 +16,7 @@ struct WindowTestApp: App {
             ContentView()
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
         }
+        .windowResizability(.contentSize)
+        .defaultSize(width: 1200, height: 800)
     }
 }
