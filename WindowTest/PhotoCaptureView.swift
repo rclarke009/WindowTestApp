@@ -200,9 +200,15 @@ struct PhotoCaptureView: View {
                 photo.createdAt = Date()
                 photo.window = self.window
                 
-                // Add to photos relationship
-                self.window.photos = self.window.photos?.adding(photo) as NSSet?
-                
+                // Add to appropriate relationship
+                switch self.photoType {
+                case .exterior:
+                    self.window.addToExteriorPhotos(photo)
+                case .interior:
+                    self.window.addToInteriorPhotos(photo)
+                case .leak:
+                    self.window.addToLeakPhotos(photo)
+                } 
                 self.window.updatedAt = Date()
             }
         }) { success, error in

@@ -31,8 +31,14 @@ struct PhotoGalleryView: View {
     }
     
     private var photosArray: [Photo] {
-        let allPhotos = (window.photos?.allObjects as? [Photo]) ?? []
-        return allPhotos.filter { $0.photoType == photoType.rawValue }
+        switch photoType {
+        case .exterior:
+            return (window.exteriorPhotos?.allObjects as? [Photo]) ?? []
+        case .interior:
+            return (window.interiorPhotos?.allObjects as? [Photo]) ?? []
+        case .leak:
+            return (window.leakPhotos?.allObjects as? [Photo]) ?? []
+        }
     }
     
     private let columns = [

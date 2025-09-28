@@ -47,8 +47,16 @@ struct FieldResultsPackage {
     }
     
     private func getPhotoCount(for window: Window, type: String) -> Int {
-        let allPhotos = (window.photos?.allObjects as? [Photo]) ?? []
-        return allPhotos.filter { $0.photoType == type }.count
+        switch type {
+        case "Exterior":
+            return window.exteriorPhotos?.count ?? 0
+        case "Interior":
+            return window.interiorPhotos?.count ?? 0
+        case "Leak":
+            return window.leakPhotos?.count ?? 0
+        default:
+            return 0
+        }
     }
     
     private func generateJobJSON(in directory: URL) async throws {
@@ -174,10 +182,9 @@ struct FieldResultsPackage {
         photoManifest += "==============\n\n"
         
         for window in windows {
-            let allPhotos = (window.photos?.allObjects as? [Photo]) ?? []
-            let exteriorPhotos = allPhotos.filter { $0.photoType == "Exterior" }
-            let interiorPhotos = allPhotos.filter { $0.photoType == "Interior" }
-            let leakPhotos = allPhotos.filter { $0.photoType == "Leak" }
+            let exteriorPhotos = (window.exteriorPhotos?.allObjects as? [Photo]) ?? []
+            let interiorPhotos = (window.interiorPhotos?.allObjects as? [Photo]) ?? []
+            let leakPhotos = (window.leakPhotos?.allObjects as? [Photo]) ?? []
             
             photoManifest += "Window \(window.windowNumber ?? "Unknown"):\n"
             photoManifest += "  Exterior Photos: \(exteriorPhotos.count)\n"

@@ -556,8 +556,14 @@ struct PhotoRow: View {
     @State private var showingPhotoGallery = false
     
     private var photoCount: Int {
-        let allPhotos = (window.photos?.allObjects as? [Photo]) ?? []
-        return allPhotos.filter { $0.photoType == photoType.rawValue }.count
+        switch photoType {
+        case .exterior:
+            return window.exteriorPhotos?.count ?? 0
+        case .interior:
+            return window.interiorPhotos?.count ?? 0
+        case .leak:
+            return window.leakPhotos?.count ?? 0
+        }
     }
     
     var body: some View {
