@@ -14,11 +14,19 @@ struct FieldResultsPackage {
     let exportDirectory: URL
     
     func generate() async throws -> URL {
+        print("🚀 Starting export for job: \(job.jobId ?? "Unknown") in \(job.city ?? "Unknown")")
+        
         let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         let exportDirectory = documentsDirectory.appendingPathComponent("exports")
         try FileManager.default.createDirectory(at: exportDirectory, withIntermediateDirectories: true)
         
-        let packageName = "\(job.jobId ?? "Unknown")_\(job.city ?? "Unknown")_\(DateFormatter.exportDate.string(from: Date()))"
+        let jobId = job.jobId ?? "Unknown"
+        let city = job.city ?? "Unknown"
+        let dateString = DateFormatter.exportDate.string(from: Date())
+        let packageName = "\(jobId)_\(city)_\(dateString)"
+        
+        print("📦 Creating package: \(packageName)")
+        
         let packageDirectory = exportDirectory.appendingPathComponent(packageName)
         try FileManager.default.createDirectory(at: packageDirectory, withIntermediateDirectories: true)
         
@@ -28,20 +36,33 @@ struct FieldResultsPackage {
         // Generate windows.csv
         try await generateWindowsCSV(in: packageDirectory)
         
-        // Generate overhead image with dots
-        try await generateOverheadWithDots(in: packageDirectory)
+        // Generate overhead image with dots (optional)
+        do {
+            try await generateOverheadWithDots(in: packageDirectory)
+        } catch {
+            print("⚠️ Could not generate overhead image with dots: \(error.localizedDescription)")
+            // Continue with export even if overhead image fails
+        }
         
-        // Copy photos
-        try await copyPhotos(to: packageDirectory)
+        // Copy photos (optional)
+        do {
+            try await copyPhotos(to: packageDirectory)
+        } catch {
+            print("⚠️ Could not copy photos: \(error.localizedDescription)")
+            // Continue with export even if photo copying fails
+        }
         
         // Generate report
         try await generateReport(in: packageDirectory)
         
         // Create ZIP file
+        print("📦 Creating archive...")
         let zipURL = try await createZIP(from: packageDirectory, name: packageName)
+        print("✅ Archive created at: \(zipURL.path)")
         
         // Clean up temporary directory
         try FileManager.default.removeItem(at: packageDirectory)
+        print("🧹 Cleaned up temporary directory")
         
         return zipURL
     }
@@ -131,12 +152,23 @@ struct FieldResultsPackage {
     }
     
     private func generateOverheadWithDots(in directory: URL) async throws {
-        guard let imagePath = job.overheadImagePath else { return }
+        guard let imagePath = job.overheadImagePath else { 
+            print("⚠️ No overhead image path found for job")
+            return 
+        }
         
         let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         let imageURL = documentsDirectory.appendingPathComponent("overhead_images").appendingPathComponent(imagePath)
         
-        guard let image = UIImage(contentsOfFile: imageURL.path) else { return }
+        guard FileManager.default.fileExists(atPath: imageURL.path) else {
+            print("⚠️ Overhead image file not found at: \(imageURL.path)")
+            return
+        }
+        
+        guard let image = UIImage(contentsOfFile: imageURL.path) else { 
+            print("⚠️ Could not load overhead image from: \(imageURL.path)")
+            return 
+        }
         
         // Create image with window dots
         let renderer = UIGraphicsImageRenderer(size: image.size)
@@ -229,19 +261,35 @@ struct FieldResultsPackage {
     }
     
     private func createZIP(from directory: URL, name: String) async throws -> URL {
-        let zipURL = directory.deletingLastPathComponent().appendingPathComponent("\(name).zip")
+        print("📁 Creating archive from: \(directory.path)")
         
         // Create a simple archive by copying all files from the directory
         // Since we can't easily create a ZIP without external libraries, we'll create a folder
         let archiveDirectory = directory.deletingLastPathComponent().appendingPathComponent(name)
         
+        print("📁 Archive will be created at: \(archiveDirectory.path)")
+        
         // Remove existing archive directory if it exists
         if FileManager.default.fileExists(atPath: archiveDirectory.path) {
+            print("🗑️ Removing existing archive directory")
             try FileManager.default.removeItem(at: archiveDirectory)
         }
         
+        // Verify source directory exists
+        guard FileManager.default.fileExists(atPath: directory.path) else {
+            throw NSError(domain: "ExportError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Source directory does not exist: \(directory.path)"])
+        }
+        
         // Copy the entire package directory to the archive directory
+        print("📋 Copying files to archive...")
         try FileManager.default.copyItem(at: directory, to: archiveDirectory)
+        
+        // Verify archive was created
+        guard FileManager.default.fileExists(atPath: archiveDirectory.path) else {
+            throw NSError(domain: "ExportError", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to create archive directory"])
+        }
+        
+        print("✅ Archive created successfully at: \(archiveDirectory.path)")
         
         // For now, return the directory instead of a ZIP file
         // In a production app, you would use a ZIP library like ZipArchive
