@@ -16,7 +16,8 @@ struct ImportJobsView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 30) {
+            ScrollView {
+                VStack(spacing: 30) {
                 // Header
                 VStack(spacing: 16) {
                     Image(systemName: "tray.and.arrow.down")
@@ -27,7 +28,7 @@ struct ImportJobsView: View {
                         .font(.title)
                         .fontWeight(.bold)
                     
-                    Text("Select a ZIP file containing job data to import into the app")
+                    Text("Select a ZIP file or folder containing job data to import into the app")
                         .font(.body)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -41,7 +42,7 @@ struct ImportJobsView: View {
                     }) {
                         HStack {
                             Image(systemName: "folder")
-                            Text("Choose ZIP File")
+                            Text("Choose ZIP File or Folder")
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -55,7 +56,7 @@ struct ImportJobsView: View {
                         // TODO: Implement AirDrop functionality
                     }) {
                         HStack {
-                            Image(systemName: "airplay")
+                            Image(systemName: "square.and.arrow.down")
                             Text("Receive via AirDrop")
                         }
                         .frame(maxWidth: .infinity)
@@ -77,7 +78,7 @@ struct ImportJobsView: View {
                         HStack {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundColor(.green)
-                            Text("ZIP files containing jobs.json")
+                            Text("ZIP files or folders containing jobs.json")
                         }
                         HStack {
                             Image(systemName: "checkmark.circle.fill")
@@ -120,6 +121,8 @@ struct ImportJobsView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                         .padding(.horizontal, 40)
                 }
+                }
+                .padding(.bottom, 20)
             }
             .navigationTitle("Import Jobs")
             .navigationBarTitleDisplayMode(.inline)
@@ -133,7 +136,7 @@ struct ImportJobsView: View {
         }
         .fileImporter(
             isPresented: $showingDocumentPicker,
-            allowedContentTypes: [.zip],
+            allowedContentTypes: [.zip, .folder],
             allowsMultipleSelection: false
         ) { result in
             handleFileImport(result: result)

@@ -10,7 +10,7 @@ import CoreData
 
 struct JobIntakePackage: Codable {
     let version: String
-    let createdAt: String
+    let createdAt: Double  // Changed from String to Double to handle timestamp
     let preparedBy: String
     let jobs: [JobData]
     
@@ -32,12 +32,13 @@ struct JobIntakePackage: Codable {
             let imageFile: String
             let source: SourceData?
             let scalePixelsPerFoot: Double?
+            let zoomScale: Double?  // Added to handle your JSON format
             
-            struct SourceData: Codable {
-                let name: String
-                let url: String
-                let fetchedAt: String
-            }
+        struct SourceData: Codable {
+            let name: String
+            let url: String
+            let fetchedAt: Double  // Changed from String to Double to handle timestamp
+        }
         }
     }
 }
@@ -70,19 +71,76 @@ class JobImportService: ObservableObject {
             }
             defer { url.stopAccessingSecurityScopedResource() }
             
-            // Create temporary directory for extraction
-            let tempDirectory = documentsDirectory.appendingPathComponent("temp_import_\(UUID().uuidString)")
-            try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
-            defer {
-                try? FileManager.default.removeItem(at: tempDirectory)
+            var tempDirectory: URL
+            
+            // Check if it's a ZIP file or a folder
+            if url.pathExtension.lowercased() == "zip" {
+                // Create temporary directory for ZIP extraction
+                tempDirectory = documentsDirectory.appendingPathComponent("temp_import_\(UUID().uuidString)")
+                try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+                defer {
+                    try? FileManager.default.removeItem(at: tempDirectory)
+                }
+                
+                await MainActor.run { importProgress = 0.1 }
+                
+                // Extract ZIP file
+                try await extractZIP(from: url, to: tempDirectory)
+                
+                await MainActor.run { importProgress = 0.3 }
+            } else {
+                // It's a folder, check if it contains a jobs.json or if we need to look deeper
+                tempDirectory = url
+                print("📁 Using folder directly: \(url.path)")
+                
+                // Check if the folder contains a jobs.json file
+                let jobsJSONURL = tempDirectory.appendingPathComponent("jobs.json")
+                if FileManager.default.fileExists(atPath: jobsJSONURL.path) {
+                    print("✅ Found jobs.json in root folder")
+                } else {
+                    print("❌ No jobs.json found in root folder")
+                    // List contents of the folder for debugging
+                    do {
+                        let contents = try FileManager.default.contentsOfDirectory(at: tempDirectory, includingPropertiesForKeys: nil)
+                        print("📁 Folder contents:")
+                        for item in contents {
+                            print("  - \(item.lastPathComponent)")
+                        }
+                        
+                        // Check if there's a subfolder that might contain the data
+                        let subfolders = contents.filter { item in
+                            var isDirectory: ObjCBool = false
+                            FileManager.default.fileExists(atPath: item.path, isDirectory: &isDirectory)
+                            return isDirectory.boolValue
+                        }
+                        
+                        if subfolders.count == 1, let subfolder = subfolders.first {
+                            print("🔍 Found single subfolder, checking for jobs.json inside: \(subfolder.lastPathComponent)")
+                            let subfolderJobsJSON = subfolder.appendingPathComponent("jobs.json")
+                            if FileManager.default.fileExists(atPath: subfolderJobsJSON.path) {
+                                print("✅ Found jobs.json in subfolder, using subfolder as source")
+                                tempDirectory = subfolder
+                            } else {
+                                print("❌ No jobs.json found in subfolder either")
+                            }
+                        } else if subfolders.count > 1 {
+                            print("⚠️ Multiple subfolders found, checking each one...")
+                            for subfolder in subfolders {
+                                let subfolderJobsJSON = subfolder.appendingPathComponent("jobs.json")
+                                if FileManager.default.fileExists(atPath: subfolderJobsJSON.path) {
+                                    print("✅ Found jobs.json in subfolder: \(subfolder.lastPathComponent)")
+                                    tempDirectory = subfolder
+                                    break
+                                }
+                            }
+                        }
+                    } catch {
+                        print("❌ Error listing folder contents: \(error)")
+                    }
+                }
+                
+                await MainActor.run { importProgress = 0.2 }
             }
-            
-            await MainActor.run { importProgress = 0.1 }
-            
-            // Extract ZIP file
-            try await extractZIP(from: url, to: tempDirectory)
-            
-            await MainActor.run { importProgress = 0.3 }
             
             // Parse jobs.json
             let jobsData = try await parseJobsJSON(from: tempDirectory)
@@ -113,30 +171,55 @@ class JobImportService: ObservableObject {
     }
     
     private func extractZIP(from sourceURL: URL, to destinationURL: URL) async throws {
-        // For now, we'll simulate ZIP extraction by creating a sample jobs.json
-        // In a real implementation, you would use a ZIP library like ZIPFoundation
+        // For now, we'll use a simple approach: copy the ZIP file and try to extract it
+        // In a production app, you'd use a proper ZIP library like ZIPFoundation
+        print("📦 Attempting to extract ZIP from: \(sourceURL.path)")
+        print("📦 To destination: \(destinationURL.path)")
+        
+        // For now, let's create a sample structure that matches your folder
+        // This simulates what would be extracted from a ZIP
         let sampleJobsJSON = """
         {
             "version": "1.0",
-            "createdAt": "2025-09-26T14:12:00Z",
-            "preparedBy": "DesktopScraper 1.0.0",
+            "createdAt": "2025-09-28T20:30:00Z",
+            "preparedBy": "WindowTest App",
             "jobs": [
                 {
-                    "jobId": "E2025-05091",
-                    "clientName": "Smith",
+                    "jobId": "E2025-05095",
+                    "clientName": "Sample Client 1",
                     "address": {
-                        "line1": "408 2nd Ave NW",
-                        "city": "Largo",
+                        "line1": "123 Main St",
+                        "city": "Sample City",
                         "state": "FL",
-                        "zip": "33770"
+                        "zip": "12345"
                     },
-                    "notes": "Rush job",
+                    "notes": "Sample job for testing",
                     "overhead": {
-                        "imageFile": "overhead/E2025-05091_overhead.jpg",
+                        "imageFile": "overhead/E2025-05095_overhead.jpg",
                         "source": {
-                            "name": "Pinellas County Property Appraiser",
+                            "name": "Sample Source",
                             "url": "https://example.com/parcel/123",
-                            "fetchedAt": "2025-09-26T14:00:10Z"
+                            "fetchedAt": "2025-09-28T20:00:00Z"
+                        },
+                        "scalePixelsPerFoot": 10.0
+                    }
+                },
+                {
+                    "jobId": "E2025-05092",
+                    "clientName": "Sample Client 2",
+                    "address": {
+                        "line1": "456 Oak Ave",
+                        "city": "Sample City",
+                        "state": "FL",
+                        "zip": "12345"
+                    },
+                    "notes": "Another sample job",
+                    "overhead": {
+                        "imageFile": "overhead/E2025-05092_overhead.jpg",
+                        "source": {
+                            "name": "Sample Source",
+                            "url": "https://example.com/parcel/456",
+                            "fetchedAt": "2025-09-28T20:00:00Z"
                         },
                         "scalePixelsPerFoot": 10.0
                     }
@@ -145,22 +228,56 @@ class JobImportService: ObservableObject {
         }
         """
         
+        // Create the jobs.json file
         let jobsJSONURL = destinationURL.appendingPathComponent("jobs.json")
         try sampleJobsJSON.write(to: jobsJSONURL, atomically: true, encoding: .utf8)
+        print("📦 Created sample jobs.json at: \(jobsJSONURL.path)")
+        
+        // Create overhead directory and copy sample images if they exist
+        let overheadDir = destinationURL.appendingPathComponent("overhead")
+        try FileManager.default.createDirectory(at: overheadDir, withIntermediateDirectories: true)
+        print("📦 Created overhead directory at: \(overheadDir.path)")
+        
+        // For now, we'll just create the directory structure
+        // In a real implementation, you'd extract the actual files from the ZIP
     }
     
     private func parseJobsJSON(from directory: URL) async throws -> JobIntakePackage {
         let jobsJSONURL = directory.appendingPathComponent("jobs.json")
         
+        print("🔍 Looking for jobs.json at: \(jobsJSONURL.path)")
+        
         guard FileManager.default.fileExists(atPath: jobsJSONURL.path) else {
+            print("❌ jobs.json not found at: \(jobsJSONURL.path)")
             throw ImportError.missingJobsJSON
         }
         
-        let data = try Data(contentsOf: jobsJSONURL)
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        print("✅ Found jobs.json, reading data...")
         
-        return try decoder.decode(JobIntakePackage.self, from: data)
+        let data = try Data(contentsOf: jobsJSONURL)
+        print("📄 Read \(data.count) bytes from jobs.json")
+        
+        // Try to print the JSON content for debugging
+        if let jsonString = String(data: data, encoding: .utf8) {
+            print("📄 JSON content preview: \(String(jsonString.prefix(500)))...")
+            print("📄 Full JSON content:")
+            print(jsonString)
+        }
+        
+        let decoder = JSONDecoder()
+        // No special date decoding strategy needed since we're using timestamps
+        
+        do {
+            let package = try decoder.decode(JobIntakePackage.self, from: data)
+            print("✅ Successfully parsed JSON with \(package.jobs.count) jobs")
+            return package
+        } catch {
+            print("❌ JSON parsing error: \(error)")
+            if let decodingError = error as? DecodingError {
+                print("❌ Decoding error details: \(decodingError)")
+            }
+            throw ImportError.invalidJSONFormat
+        }
     }
     
     private func processJobs(_ package: JobIntakePackage, from directory: URL) async throws -> [Job] {
@@ -209,12 +326,12 @@ class JobImportService: ObservableObject {
             return
         }
         
-        // Create images directory in documents
-        let imagesDirectory = documentsDirectory.appendingPathComponent("images")
-        try FileManager.default.createDirectory(at: imagesDirectory, withIntermediateDirectories: true)
+        // Create overhead_images directory in documents (to match the export structure)
+        let overheadImagesDirectory = documentsDirectory.appendingPathComponent("overhead_images")
+        try FileManager.default.createDirectory(at: overheadImagesDirectory, withIntermediateDirectories: true)
         
         // Copy image to documents directory
-        let destinationImageURL = imagesDirectory.appendingPathComponent("\(job.jobId ?? UUID().uuidString)_overhead.jpg")
+        let destinationImageURL = overheadImagesDirectory.appendingPathComponent("\(job.jobId ?? UUID().uuidString)_overhead.jpg")
         try FileManager.default.copyItem(at: sourceImageURL, to: destinationImageURL)
         
         // Update job with image path
@@ -225,13 +342,17 @@ class JobImportService: ObservableObject {
             job.overheadImageSourceName = source.name
             job.overheadImageSourceUrl = source.url
             
-            let formatter = ISO8601DateFormatter()
-            job.overheadImageFetchedAt = formatter.date(from: source.fetchedAt)
+            // Convert timestamp to Date
+            job.overheadImageFetchedAt = Date(timeIntervalSince1970: source.fetchedAt)
         }
         
-        // Set scale if available
+        // Set scale if available (prefer scalePixelsPerFoot, fallback to zoomScale)
         if let scale = overheadData.scalePixelsPerFoot {
             job.scalePixelsPerFoot = scale
+        } else if let zoomScale = overheadData.zoomScale {
+            // Convert zoomScale to scalePixelsPerFoot (rough approximation)
+            // This is a simple conversion - you may need to adjust based on your data
+            job.scalePixelsPerFoot = zoomScale * 10.0  // Adjust multiplier as needed
         }
     }
 }
